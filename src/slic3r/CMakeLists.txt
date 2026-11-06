@@ -559,6 +559,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/Tabbook.hpp
     GUI/TabButton.cpp
     GUI/TabButton.hpp
+    GUI/BMCUDialog.cpp
+    GUI/BMCUDialog.hpp
+    GUI/BMCUIntegration.cpp
+    GUI/BMCUIntegration.hpp
     GUI/Tab.cpp
     GUI/Tab.hpp
     GUI/TaskManager.cpp

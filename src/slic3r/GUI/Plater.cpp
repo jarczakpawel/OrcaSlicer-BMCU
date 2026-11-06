@@ -1,4 +1,5 @@
 #include "Plater.hpp"
+#include "BMCUIntegration.hpp"
 #include "../Utils/NetworkAgent.hpp"
 #include "IPrinterAgent.hpp"
 #include "CalibUtils.hpp"
@@ -14398,6 +14399,44 @@ void Plater::priv::on_filament_color_changed(wxCommandEvent &event)
 
     // A mixed slot's colour is derived from its components, so recompute the swatches.
     sidebar->update_mixed_filament_list();
+
+    if (modify_id >= 0) {
+        const auto &printer = wxGetApp().preset_bundle->printers.get_selected_preset().config;
+        const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+        if (printer.has("bmcu_enabled") && printer.opt_bool("bmcu_enabled")
+            && colors && static_cast<size_t>(modify_id) < colors->values.size()) {
+            const auto transport = printer.opt_string("bmcu_transport");
+            const auto &color = colors->values[modify_id];
+            if (transport == "moonraker") {
+                const auto *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
+                auto endpoint = printer.opt_string("bmcu_endpoint");
+                if (endpoint.empty()) endpoint = physical ? physical->opt_string("print_host") : printer.opt_string("print_host");
+                if (!endpoint.empty() && endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
+                if (!endpoint.empty()) BMCU::sync_filament(endpoint, physical ? physical->opt_string("printhost_apikey") : std::string(), modify_id, color);
+            } else if ((transport == "prusaconnect" || transport == "prusalink")
+                && modify_id < printer.opt_int("bmcu_modules") * 4) {
+                const auto *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
+                if (physical && static_cast<size_t>(modify_id) < wxGetApp().preset_bundle->filament_presets.size()) {
+                    const auto *host_type = physical->option<ConfigOptionEnum<PrintHostType>>("host_type");
+                    if (host_type && ((transport == "prusaconnect" && host_type->value == htPrusaConnect)
+                            || (transport == "prusalink" && host_type->value == htPrusaLink))) {
+                        auto *filament = wxGetApp().preset_bundle->filaments.find_preset(
+                            wxGetApp().preset_bundle->filament_presets[modify_id]);
+                        if (filament) {
+                            std::string display_type;
+                            const auto material = filament->get_filament_type(display_type);
+                            if (!material.empty()) {
+                                const int module = modify_id / 4;
+                                BMCU::queue_prusa(*physical, BMCU::Slot {
+                                    std::string(1, static_cast<char>('A' + module)), material, color, {}, modify_id % 4,
+                                    modify_id, false, std::string(1, static_cast<char>('A' + module)) + std::to_string(modify_id % 4 + 1) });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void Plater::priv::install_network_plugin(wxCommandEvent &event)

@@ -1,5 +1,6 @@
 //#include "slic3r/Utils/Serial.hpp"
 #include "Tab.hpp"
+#include "BMCUDialog.hpp"
 #include "PresetHints.hpp"
 #include "libslic3r/IMEXHelpers.hpp"
 #include "libslic3r/PresetBundle.hpp"
@@ -5540,7 +5541,29 @@ void TabPrinter::build_fff()
 
         optgroup->append_single_option_line("bmcu_enabled");
         optgroup->append_single_option_line("bmcu_transport");
+        optgroup->append_single_option_line("bmcu_modules");
         optgroup->append_single_option_line("bmcu_endpoint");
+        Line bmcu_line { L("BMCU channels"), L("Detect modules and configure each channel's material and color.") };
+        bmcu_line.widget = [this](wxWindow *parent) -> wxSizer * {
+            auto *sizer = new wxBoxSizer(wxHORIZONTAL);
+            auto *button = new wxButton(parent, wxID_ANY, _(L("Manage BMCU")));
+            button->Bind(wxEVT_BUTTON, [this, parent](wxCommandEvent &) {
+                if (!m_config->opt_bool("bmcu_enabled")) {
+                    MessageDialog(parent, _(L("Enable BMCU in this printer profile first.")), "BMCU", wxOK | wxICON_INFORMATION).ShowModal();
+                    return;
+                }
+                const DynamicPrintConfig *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
+                if (!physical) physical = m_config;
+                auto endpoint = m_config->opt_string("bmcu_endpoint");
+                if (endpoint.empty()) endpoint = physical->opt_string("print_host");
+                if (!endpoint.empty() && endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
+                BMCUDialog(parent, m_config->opt_string("bmcu_transport"), endpoint,
+                    physical->opt_string("printhost_apikey"), m_config->opt_int("bmcu_modules"), physical).ShowModal();
+            });
+            sizer->Add(button, 0, wxALL, 2);
+            return sizer;
+        };
+        optgroup->append_line(bmcu_line);
         optgroup->append_single_option_line("use_3mf");
         optgroup->append_single_option_line("scan_first_layer" , "printer_basic_information_advanced#scan-first-layer");
         optgroup->append_single_option_line("enable_power_loss_recovery", "printer_basic_information_advanced#power-loss-recovery");
