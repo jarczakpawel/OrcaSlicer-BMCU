@@ -34,6 +34,8 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
 void queue_prusa(const DynamicPrintConfig &config, const Slot &slot);
 void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material = {});
 void sync_from_slicer(int tool, const std::string &material, const std::string &color);
+void sync_slicer_color(int tool);
+void sync_slicer_material_changes(const DynamicPrintConfig &previous, const DynamicPrintConfig &updated);
 
 }
 

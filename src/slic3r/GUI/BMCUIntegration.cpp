@@ -482,6 +482,32 @@ void sync_filament(const std::string &endpoint, const std::string &api_key, int 
     queue_filament_sync(endpoint, api_key, tool, color, material, false);
 }
 
+
+void sync_slicer_color(int tool)
+{
+    if (tool < 0) return;
+    auto *bundle = wxGetApp().preset_bundle;
+    const auto *colors = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (!colors || static_cast<size_t>(tool) >= colors->values.size() ||
+        static_cast<size_t>(tool) >= bundle->filament_presets.size()) return;
+    auto *filament = bundle->filaments.find_preset(bundle->filament_presets[tool]);
+    if (!filament) return;
+    std::string display;
+    sync_from_slicer(tool, filament->get_filament_type(display), colors->values[tool]);
+}
+
+void sync_slicer_material_changes(const DynamicPrintConfig &previous, const DynamicPrintConfig &updated)
+{
+    const auto *before = previous.option<ConfigOptionStrings>("filament_type");
+    const auto *after = updated.option<ConfigOptionStrings>("filament_type");
+    const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (!before || !after || !colors) return;
+    const size_t count = std::min({before->values.size(), after->values.size(), colors->values.size(), size_t(16)});
+    for (size_t i = 0; i < count; ++i)
+        if (before->values[i] != after->values[i])
+            sync_from_slicer(static_cast<int>(i), after->values[i], colors->values[i]);
+}
+
 void sync_from_slicer(int tool, const std::string &material, const std::string &color)
 {
     if (tool < 0 || tool >= 16 || !valid_color(color) || material.empty()) return;

@@ -14400,18 +14400,8 @@ void Plater::priv::on_filament_color_changed(wxCommandEvent &event)
     // A mixed slot's colour is derived from its components, so recompute the swatches.
     sidebar->update_mixed_filament_list();
 
-    if (modify_id >= 0) {
-        auto *bundle = wxGetApp().preset_bundle;
-        const auto *colors = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
-        if (colors && static_cast<size_t>(modify_id) < colors->values.size() &&
-            static_cast<size_t>(modify_id) < bundle->filament_presets.size()) {
-            auto *filament = bundle->filaments.find_preset(bundle->filament_presets[modify_id]);
-            if (filament) {
-                std::string display;
-                BMCU::sync_from_slicer(modify_id, filament->get_filament_type(display), colors->values[modify_id]);
-            }
-        }
-    }
+    BMCU::sync_slicer_color(modify_id);
+
 }
 
 void Plater::priv::install_network_plugin(wxCommandEvent &event)
@@ -22105,17 +22095,8 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
             p->view3D->get_canvas3d()->set_as_dirty();
     }
 
-    if (filament_list_changed) {
-        const auto *previous = p->config->option<ConfigOptionStrings>("filament_type");
-        const auto *updated = config.option<ConfigOptionStrings>("filament_type");
-        const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
-        if (previous && updated && colors) {
-            const size_t count = std::min({previous->values.size(), updated->values.size(), colors->values.size(), size_t(16)});
-            for (size_t i = 0; i < count; ++i)
-                if (previous->values[i] != updated->values[i])
-                    BMCU::sync_from_slicer(static_cast<int>(i), updated->values[i], colors->values[i]);
-        }
-    }
+    if (filament_list_changed)
+        BMCU::sync_slicer_material_changes(*p->config, config);
 
     if (filament_colour_changed || filament_list_changed) {
         update_filament_colors_in_full_config();

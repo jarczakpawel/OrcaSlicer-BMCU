@@ -1,5 +1,8 @@
 #include "BMCUDialog.hpp"
 #include "GUI_App.hpp"
+#include "GUI.hpp"
+#include "I18N.hpp"
+#include "OptionsGroup.hpp"
 #include "Widgets/WebView.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -17,6 +20,33 @@
 #include <algorithm>
 
 namespace Slic3r::GUI {
+
+void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &config)
+{
+    for (const char *key : { "bmcu_enabled", "bmcu_transport", "bmcu_modules", "bmcu_endpoint" })
+        group.append_single_option_line(key);
+    Line line { L("BMCU channels"), L("Detect modules and configure each channel's material and color.") };
+    line.widget = [&config](wxWindow *parent) -> wxSizer * {
+        auto *layout = new wxBoxSizer(wxHORIZONTAL);
+        auto *button = new wxButton(parent, wxID_ANY, _(L("Manage BMCU")));
+        button->Bind(wxEVT_BUTTON, [&config, parent](wxCommandEvent &) {
+            if (!config.opt_bool("bmcu_enabled")) {
+                MessageDialog(parent, _(L("Enable BMCU in this printer profile first.")), "BMCU", wxOK | wxICON_INFORMATION).ShowModal();
+                return;
+            }
+            const DynamicPrintConfig *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
+            if (!physical) physical = &config;
+            auto endpoint = config.opt_string("bmcu_endpoint");
+            if (endpoint.empty()) endpoint = physical->opt_string("print_host");
+            if (!endpoint.empty() && endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
+            BMCUDialog(parent, config.opt_string("bmcu_transport"), endpoint,
+                physical->opt_string("printhost_apikey"), config.opt_int("bmcu_modules"), physical).ShowModal();
+        });
+        layout->Add(button, 0, wxALL, 2);
+        return layout;
+    };
+    group.append_line(line);
+}
 
 BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key,
     int modules, const DynamicPrintConfig *print_host)

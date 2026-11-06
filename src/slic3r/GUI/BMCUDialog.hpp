@@ -20,6 +20,9 @@ namespace Slic3r { class DynamicPrintConfig; }
 
 namespace Slic3r::GUI {
 
+class ConfigOptionsGroup;
+void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &config);
+
 class BMCUDialog final : public wxDialog {
 public:
     BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key,
