@@ -75,7 +75,7 @@ void discover(const std::string &endpoint, const std::string &api_key, SlotsCall
             const auto &devices = document.at("result").at("status").at("bmcu").at("devices");
             if (!devices.is_array()) throw std::runtime_error("Invalid BMCU device list");
             std::vector<Slot> slots;
-            for (size_t index = 0; index < devices.size() && index < 16; ++index) {
+            for (size_t index = 0; index < devices.size() && index < 4; ++index) {
                 const auto &device = devices.at(index);
                 if (!device.is_object() || !device.contains("channels") || !device.at("channels").is_array()) continue;
                 const auto name = device.value("name", std::string());
@@ -228,7 +228,7 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
             if (!host) throw std::runtime_error("Prusa print host is unavailable");
             PrintHostUpload upload;
             upload.source_path = filename;
-            upload.upload_path = "BMCU_SYNC.gcode";
+            upload.upload_path = host_type->value == htPrusaConnect ? filename.filename() : boost::filesystem::path("BMCU_SYNC.gcode");
             upload.post_action = PrintHostPostUploadAction::StartPrint;
             if (!host->upload(std::move(upload), [](Http::Progress, bool &) {},
                     [&error](wxString message) { error = message.ToStdString(); },
