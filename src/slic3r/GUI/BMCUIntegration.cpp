@@ -1,4 +1,6 @@
 #include "BMCUIntegration.hpp"
+#include "GUI_App.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/Http.hpp"
 #include "slic3r/Utils/PrintHost.hpp"
 #include "libslic3r/PrintConfig.hpp"
@@ -25,9 +27,11 @@ namespace {
 
 bool valid_endpoint(const std::string &value)
 {
-    return (value.compare(0, 7, "http://") == 0 || value.compare(0, 8, "https://") == 0)
-        && value.find_first_of(" \r\n\t?#") == std::string::npos
-        && value.find('@') == std::string::npos;
+    const size_t prefix = value.compare(0, 7, "http://") == 0 ? 7 :
+        value.compare(0, 8, "https://") == 0 ? 8 : 0;
+    return prefix != 0 && value.size() > prefix && value[prefix] != '/' &&
+        value.find_first_of(" \r\n\t?#") == std::string::npos &&
+        value.find('@') == std::string::npos;
 }
 
 std::string base_url(const std::string &endpoint)
@@ -131,6 +135,74 @@ void set_filament(const std::string &endpoint, const std::string &api_key, const
     http.perform();
 }
 
+void discover_panel(const std::string &endpoint, const std::string &api_key, UpdateCallback callback)
+{
+    if (!valid_endpoint(endpoint)) {
+        callback({});
+        return;
+    }
+    const auto scheme_end = endpoint.find("://") + 3;
+    const auto authority_end = endpoint.find('/', scheme_end);
+    const auto authority = endpoint.substr(scheme_end, authority_end == std::string::npos ? std::string::npos : authority_end - scheme_end);
+    const auto name_end = authority.front() == '[' ? authority.find(']') + 1 : authority.find(':');
+    const auto host = authority.substr(0, name_end);
+    if (host.empty() || host == "[" || host.find('@') != std::string::npos) {
+        callback({});
+        return;
+    }
+    auto http = Http::get(base_url(endpoint) + "/printer/objects/query?bmcu_panel");
+    http.timeout_connect(4).timeout_max(8).tls_verify(true);
+    if (!api_key.empty()) http.header("X-Api-Key", api_key);
+    auto handled = std::make_shared<bool>(false);
+    http.on_complete([callback, host, handled](std::string body, unsigned) {
+        *handled = true;
+        try {
+            const auto panel = nlohmann::json::parse(body).at("result").at("status").at("bmcu_panel");
+            const int port = panel.value("port", 0);
+            if (!panel.value("enabled", false) || port < 1024 || port > 65535) {
+                callback({});
+                return;
+            }
+            callback("http://" + host + ":" + std::to_string(port) + "/");
+        } catch (const std::exception &) {
+            callback({});
+        }
+    });
+    http.on_error([callback, handled](std::string, std::string, unsigned) {
+        if (!*handled) callback({});
+    });
+    http.perform();
+}
+
+void update_prusalink(const std::string &endpoint, const std::string &api_key, const Slot &slot, const std::string &material, const std::string &color, UpdateCallback callback)
+{
+    constexpr const char *types[] = { "PLA", "PETG", "ASA", "PC", "PVB", "ABS", "HIPS", "PP", "FLEX", "PA", "PPS", "PPA", "PVA", "BVOH" };
+    auto selected = upper(material);
+    if (selected == "TPU") selected = "FLEX";
+    const auto type = std::find_if(std::begin(types), std::end(types), [&selected](const char *candidate) { return selected == candidate; });
+    if (!valid_endpoint(endpoint) || slot.tool < 0 || slot.tool >= 16 || !valid_color(color) || type == std::end(types)) {
+        callback("Invalid PrusaLink slot, color or material");
+        return;
+    }
+    const unsigned red = std::stoul(color.substr(1, 2), nullptr, 16);
+    const unsigned green = std::stoul(color.substr(3, 2), nullptr, 16);
+    const unsigned blue = std::stoul(color.substr(5, 2), nullptr, 16);
+    const auto path = "/api/v1/bmcu/set/" + std::to_string(slot.tool) + "/" + std::to_string(red) + "/"
+        + std::to_string(green) + "/" + std::to_string(blue) + "/" + std::to_string(type - std::begin(types));
+    auto completed = std::make_shared<bool>(false);
+    auto http = Http::post(base_url(endpoint) + path);
+    http.timeout_connect(4).timeout_max(10).tls_verify(true).set_post_body(std::string {});
+    if (!api_key.empty()) http.header("X-Api-Key", api_key);
+    http.on_complete([callback, completed](std::string, unsigned) {
+        *completed = true;
+        if (callback) callback({});
+    });
+    http.on_error([callback, completed](std::string, std::string error, unsigned code) {
+        if (!*completed && callback) callback(error.empty() ? "PrusaLink HTTP " + std::to_string(code) : error);
+    });
+    http.perform();
+}
+
 void discover_prusalink(const std::string &endpoint, const std::string &api_key, SlotsCallback callback)
 {
     if (!valid_endpoint(endpoint)) {
@@ -214,8 +286,9 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
         gcode += "M8735 T" + std::to_string(slot.tool) + " R" + std::to_string(red) + " G" + std::to_string(green)
             + " B" + std::to_string(blue) + " S\"" + material + "\"\n";
     }
+    const bool via_connect = host_type->value == htPrusaConnect;
     auto saved = std::make_shared<DynamicPrintConfig>(config);
-    std::thread([saved, gcode = std::move(gcode), callback = std::move(callback)] {
+    std::thread([saved, via_connect, gcode = std::move(gcode), callback = std::move(callback)] {
         boost::filesystem::path filename;
         std::string error;
         try {
@@ -228,7 +301,7 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
             if (!host) throw std::runtime_error("Prusa print host is unavailable");
             PrintHostUpload upload;
             upload.source_path = filename;
-            upload.upload_path = host_type->value == htPrusaConnect ? filename.filename() : boost::filesystem::path("BMCU_SYNC.gcode");
+            upload.upload_path = via_connect ? filename.filename() : boost::filesystem::path("BMCU_SYNC.gcode");
             upload.post_action = PrintHostPostUploadAction::StartPrint;
             if (!host->upload(std::move(upload), [](Http::Progress, bool &) {},
                     [&error](wxString message) { error = message.ToStdString(); },
@@ -303,18 +376,48 @@ void queue_prusa(const DynamicPrintConfig &config, const Slot &slot)
     if (start) std::thread(flush_prusa_queue).detach();
 }
 
-void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color)
+void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material)
 {
     if (tool < 0 || !valid_color(color)) return;
-    discover(endpoint, api_key, [endpoint, api_key, tool, color](std::vector<Slot> slots, std::string error) {
+    discover(endpoint, api_key, [endpoint, api_key, tool, color, material](std::vector<Slot> slots, std::string error) {
         if (!error.empty()) return;
         for (const Slot &slot : slots) {
             if (slot.ready && slot.tool == tool) {
-                set_filament(endpoint, api_key, slot, slot.material, color, {});
+                set_filament(endpoint, api_key, slot, material.empty() ? slot.material : material, color, {});
                 return;
             }
         }
     });
+}
+
+void sync_from_slicer(int tool, const std::string &material, const std::string &color)
+{
+    if (tool < 0 || tool >= 16 || !valid_color(color) || material.empty()) return;
+    const auto &printer = wxGetApp().preset_bundle->printers.get_selected_preset().config;
+    if (!printer.has("bmcu_enabled") || !printer.opt_bool("bmcu_enabled")) return;
+    const auto transport = printer.opt_string("bmcu_transport");
+    const auto *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
+    if ((transport == "prusalink" || transport == "prusaconnect") && !physical) return;
+    if (transport == "prusaconnect" || transport == "prusalink") {
+        const auto *type = physical->option<ConfigOptionEnum<PrintHostType>>("host_type");
+        if (!type || (transport == "prusalink" && type->value != htPrusaLink) ||
+            (transport == "prusaconnect" && type->value != htPrusaConnect)) return;
+    }
+    if (transport != "moonraker" && tool >= printer.opt_int("bmcu_modules") * 4) return;
+    const int module = tool / 4;
+    Slot slot {std::string(1, char('A' + module)), material, color, {}, tool % 4, tool, true,
+        std::string(1, char('A' + module)) + std::to_string(tool % 4 + 1)};
+    if (transport == "prusaconnect") {
+        queue_prusa(*physical, slot);
+        return;
+    }
+    auto endpoint = printer.opt_string("bmcu_endpoint");
+    if (endpoint.empty()) endpoint = physical ? physical->opt_string("print_host") : printer.opt_string("print_host");
+    if (endpoint.empty()) return;
+    if (endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
+    const auto api_key = physical ? physical->opt_string("printhost_apikey") : std::string {};
+    if (transport == "prusalink") update_prusalink(endpoint, api_key, slot, material, color, {});
+    else if (transport == "moonraker") sync_filament(endpoint, api_key, tool, color, material);
 }
 
 }

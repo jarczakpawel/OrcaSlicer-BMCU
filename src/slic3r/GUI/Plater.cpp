@@ -14401,39 +14401,14 @@ void Plater::priv::on_filament_color_changed(wxCommandEvent &event)
     sidebar->update_mixed_filament_list();
 
     if (modify_id >= 0) {
-        const auto &printer = wxGetApp().preset_bundle->printers.get_selected_preset().config;
-        const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
-        if (printer.has("bmcu_enabled") && printer.opt_bool("bmcu_enabled")
-            && colors && static_cast<size_t>(modify_id) < colors->values.size()) {
-            const auto transport = printer.opt_string("bmcu_transport");
-            const auto &color = colors->values[modify_id];
-            if (transport == "moonraker") {
-                const auto *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
-                auto endpoint = printer.opt_string("bmcu_endpoint");
-                if (endpoint.empty()) endpoint = physical ? physical->opt_string("print_host") : printer.opt_string("print_host");
-                if (!endpoint.empty() && endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
-                if (!endpoint.empty()) BMCU::sync_filament(endpoint, physical ? physical->opt_string("printhost_apikey") : std::string(), modify_id, color);
-            } else if ((transport == "prusaconnect" || transport == "prusalink")
-                && modify_id < printer.opt_int("bmcu_modules") * 4) {
-                const auto *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
-                if (physical && static_cast<size_t>(modify_id) < wxGetApp().preset_bundle->filament_presets.size()) {
-                    const auto *host_type = physical->option<ConfigOptionEnum<PrintHostType>>("host_type");
-                    if (host_type && ((transport == "prusaconnect" && host_type->value == htPrusaConnect)
-                            || (transport == "prusalink" && host_type->value == htPrusaLink))) {
-                        auto *filament = wxGetApp().preset_bundle->filaments.find_preset(
-                            wxGetApp().preset_bundle->filament_presets[modify_id]);
-                        if (filament) {
-                            std::string display_type;
-                            const auto material = filament->get_filament_type(display_type);
-                            if (!material.empty()) {
-                                const int module = modify_id / 4;
-                                BMCU::queue_prusa(*physical, BMCU::Slot {
-                                    std::string(1, static_cast<char>('A' + module)), material, color, {}, modify_id % 4,
-                                    modify_id, false, std::string(1, static_cast<char>('A' + module)) + std::to_string(modify_id % 4 + 1) });
-                            }
-                        }
-                    }
-                }
+        auto *bundle = wxGetApp().preset_bundle;
+        const auto *colors = bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+        if (colors && static_cast<size_t>(modify_id) < colors->values.size() &&
+            static_cast<size_t>(modify_id) < bundle->filament_presets.size()) {
+            auto *filament = bundle->filaments.find_preset(bundle->filament_presets[modify_id]);
+            if (filament) {
+                std::string display;
+                BMCU::sync_from_slicer(modify_id, filament->get_filament_type(display), colors->values[modify_id]);
             }
         }
     }
@@ -22128,6 +22103,18 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
         // Orca: the center of mass markers weigh the parts by it.
         else if (opt_key == "filament_density" && wxGetApp().show_center_of_mass())
             p->view3D->get_canvas3d()->set_as_dirty();
+    }
+
+    if (filament_list_changed) {
+        const auto *previous = p->config->option<ConfigOptionStrings>("filament_type");
+        const auto *updated = config.option<ConfigOptionStrings>("filament_type");
+        const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+        if (previous && updated && colors) {
+            const size_t count = std::min({previous->values.size(), updated->values.size(), colors->values.size(), size_t(16)});
+            for (size_t i = 0; i < count; ++i)
+                if (previous->values[i] != updated->values[i])
+                    BMCU::sync_from_slicer(static_cast<int>(i), updated->values[i], colors->values[i]);
+        }
     }
 
     if (filament_colour_changed || filament_list_changed) {

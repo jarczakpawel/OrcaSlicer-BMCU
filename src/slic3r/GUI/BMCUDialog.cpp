@@ -1,5 +1,6 @@
 #include "BMCUDialog.hpp"
 #include "GUI_App.hpp"
+#include "Widgets/WebView.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
@@ -10,6 +11,7 @@
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/webview.h>
 
 #include <utility>
 #include <algorithm>
@@ -32,8 +34,21 @@ BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std
     m_status = new wxStaticText(this, wxID_ANY, "");
     m_refresh = new wxButton(this, wxID_ANY, "Detect / Refresh");
     actions->Add(m_refresh, 0, wxALL, 8);
+    if (m_transport == "moonraker") {
+        auto *advanced = new wxButton(this, wxID_ANY, "Full BMCU controls");
+        actions->Add(advanced, 0, wxALL, 8);
+        advanced->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { open_full_panel(); });
+    }
     actions->Add(m_status, 1, wxALIGN_CENTER_VERTICAL | wxALL, 8);
     layout->Add(actions, 0, wxEXPAND);
+    const char *capabilities = m_transport == "moonraker"
+        ? "Klipper / Moonraker: live device detection, color and material sync, and full BMCU controls."
+        : m_transport == "prusalink"
+        ? "PrusaLink (local): live BMCU status and direct color/material updates. Printer toolchanges require compatible firmware."
+        : "Prusa Connect: uploads a small G-code print job; remote discovery and execution confirmation are not available.";
+    auto *capability_notice = new wxStaticText(this, wxID_ANY, capabilities);
+    capability_notice->Wrap(670);
+    layout->Add(capability_notice, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
     m_scroll = new wxScrolledWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL);
     m_scroll->SetScrollRate(0, 12);
@@ -95,6 +110,32 @@ void BMCUDialog::refresh()
     };
     if (m_transport == "prusalink") BMCU::discover_prusalink(m_endpoint, m_api_key, std::move(callback));
     else BMCU::discover(m_endpoint, m_api_key, std::move(callback));
+}
+
+void BMCUDialog::open_full_panel()
+{
+    m_status->SetLabel("Finding BMCU-Klipper panel...");
+    auto guard = m_alive;
+    BMCU::discover_panel(m_endpoint, m_api_key, [this, guard](std::string url) {
+        wxTheApp->CallAfter([this, guard, url = std::move(url)] {
+            if (!guard->load()) return;
+            if (url.empty()) {
+                m_status->SetLabel("BMCU-Klipper panel is not available from Moonraker");
+                return;
+            }
+            wxDialog window(this, wxID_ANY, "BMCU-Klipper", wxDefaultPosition, wxSize(1120, 820), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+            auto *browser = WebView::CreateWebView(&window, wxString::FromUTF8(url.c_str()));
+            if (!browser) {
+                m_status->SetLabel("WebView backend unavailable");
+                return;
+            }
+            auto *layout = new wxBoxSizer(wxVERTICAL);
+            layout->Add(browser, 1, wxEXPAND);
+            window.SetSizer(layout);
+            window.CentreOnParent();
+            window.ShowModal();
+        });
+    });
 }
 
 void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
@@ -181,7 +222,16 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
 void BMCUDialog::update(const BMCU::Slot &slot, const std::string &material, const std::string &color)
 {
     m_status->SetLabel("Updating " + wxString::FromUTF8(slot.label.c_str()) + "...");
-    if (m_transport == "prusaconnect" || m_transport == "prusalink") {
+    if (m_transport == "prusalink") {
+        auto guard = m_alive;
+        BMCU::update_prusalink(m_endpoint, m_api_key, slot, material, color, [this, guard, label = slot.label](std::string error) {
+            wxTheApp->CallAfter([this, guard, label, error = std::move(error)] {
+                if (guard->load()) m_status->SetLabel(error.empty() ? "Updated " + wxString::FromUTF8(label.c_str()) : wxString::FromUTF8(error.c_str()));
+            });
+        });
+        return;
+    }
+    if (m_transport == "prusaconnect") {
         auto changed = slot;
         changed.material = material;
         changed.color = color;

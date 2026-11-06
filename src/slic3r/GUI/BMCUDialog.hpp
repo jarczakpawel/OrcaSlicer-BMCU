@@ -28,6 +28,7 @@ public:
 
 private:
     void refresh();
+    void open_full_panel();
     void show_slots(const std::vector<BMCU::Slot> &slots);
     void update(const BMCU::Slot &slot, const std::string &material, const std::string &color);
     void flush_prusa();
