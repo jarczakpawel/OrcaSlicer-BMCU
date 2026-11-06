@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <boost/log/trivial.hpp>
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <memory>
 #include <boost/filesystem.hpp>
@@ -24,6 +25,8 @@
 namespace Slic3r::GUI::BMCU {
 
 namespace {
+
+constexpr std::array<const char *, 14> prusa_materials {"PLA", "PETG", "ASA", "PC", "PVB", "ABS", "HIPS", "PP", "FLEX", "PA", "PPS", "PPA", "PVA", "BVOH"};
 
 bool valid_endpoint(const std::string &value)
 {
@@ -176,11 +179,10 @@ void discover_panel(const std::string &endpoint, const std::string &api_key, Upd
 
 void update_prusalink(const std::string &endpoint, const std::string &api_key, const Slot &slot, const std::string &material, const std::string &color, UpdateCallback callback)
 {
-    constexpr const char *types[] = { "PLA", "PETG", "ASA", "PC", "PVB", "ABS", "HIPS", "PP", "FLEX", "PA", "PPS", "PPA", "PVA", "BVOH" };
     auto selected = upper(material);
     if (selected == "TPU") selected = "FLEX";
-    const auto type = std::find_if(std::begin(types), std::end(types), [&selected](const char *candidate) { return selected == candidate; });
-    if (!valid_endpoint(endpoint) || slot.tool < 0 || slot.tool >= 16 || !valid_color(color) || type == std::end(types)) {
+    const auto type = std::find_if(prusa_materials.begin(), prusa_materials.end(), [&selected](const char *candidate) { return selected == candidate; });
+    if (!valid_endpoint(endpoint) || slot.tool < 0 || slot.tool >= 16 || !valid_color(color) || type == prusa_materials.end()) {
         callback("Invalid PrusaLink slot, color or material");
         return;
     }
@@ -188,7 +190,7 @@ void update_prusalink(const std::string &endpoint, const std::string &api_key, c
     const unsigned green = std::stoul(color.substr(3, 2), nullptr, 16);
     const unsigned blue = std::stoul(color.substr(5, 2), nullptr, 16);
     const auto path = "/api/v1/bmcu/set/" + std::to_string(slot.tool) + "/" + std::to_string(red) + "/"
-        + std::to_string(green) + "/" + std::to_string(blue) + "/" + std::to_string(type - std::begin(types));
+        + std::to_string(green) + "/" + std::to_string(blue) + "/" + std::to_string(type - prusa_materials.begin());
     auto completed = std::make_shared<bool>(false);
     auto http = Http::post(base_url(endpoint) + path);
     http.timeout_connect(4).timeout_max(10).tls_verify(true).set_post_body(std::string {});
@@ -217,7 +219,6 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
             const auto document = nlohmann::json::parse(body);
             const auto &modules = document.at("modules");
             if (!modules.is_array() || document.value("schema", 0) != 1) throw std::runtime_error("Invalid BMCU API response");
-            constexpr const char *material_names[] = { "PLA", "PETG", "ASA", "PC", "PVB", "ABS", "HIPS", "PP", "FLEX", "PA", "PPS", "PPA", "PVA", "BVOH" };
             std::vector<Slot> slots;
             for (const auto &module : modules) {
                 if (!module.is_object() || !module.value("online", false)) continue;
@@ -231,7 +232,7 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
                     const int source = value.value("source", -1);
                     if (source != index * 4 + static_cast<int>(channel)) continue;
                     const int material = value.value("material", 255);
-                    const auto type = material >= 0 && material < static_cast<int>(sizeof(material_names) / sizeof(material_names[0])) ? material_names[material] : "Unknown";
+                    const auto type = material >= 0 && material < static_cast<int>(prusa_materials.size()) ? prusa_materials[material] : "Unknown";
                     const uint16_t rgb = static_cast<uint16_t>(value.value("color565", 0));
                     char color[8];
                     std::snprintf(color, sizeof(color), "#%02X%02X%02X",
@@ -266,7 +267,6 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
         return;
     }
     std::string gcode = "; OrcaSlicer-BMCU metadata synchronization\n";
-    constexpr const char *materials[] = { "PLA", "PETG", "ASA", "PC", "PVB", "ABS", "HIPS", "PP", "FLEX", "PA", "PVA", "BVOH" };
     for (const Slot &slot : slots) {
         if (slot.tool < 0 || slot.tool >= 16 || !valid_color(slot.color)) {
             callback("Invalid Prusa BMCU slot or color");
@@ -274,7 +274,7 @@ void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots
         }
         auto material = upper(slot.material);
         if (material == "TPU") material = "FLEX";
-        if (std::find_if(std::begin(materials), std::end(materials), [&material](const char *value) { return material == value; }) == std::end(materials)) {
+        if (std::find_if(prusa_materials.begin(), prusa_materials.end(), [&material](const char *value) { return material == value; }) == prusa_materials.end()) {
             callback("Unsupported Prusa filament material: " + material);
             return;
         }
@@ -376,18 +376,110 @@ void queue_prusa(const DynamicPrintConfig &config, const Slot &slot)
     if (start) std::thread(flush_prusa_queue).detach();
 }
 
-void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material)
+namespace {
+struct FilamentSync {
+    std::string endpoint;
+    std::string api_key;
+    std::string material;
+    std::string color;
+    int tool = -1;
+    unsigned revision = 0;
+    bool prusalink = false;
+};
+
+std::mutex filament_sync_mutex;
+std::map<std::string, FilamentSync> filament_sync_queue;
+
+void dispatch_filament_sync(const std::string &key);
+
+void complete_filament_sync(const std::string &key, unsigned revision, const std::string &error)
 {
-    if (tool < 0 || !valid_color(color)) return;
-    discover(endpoint, api_key, [endpoint, api_key, tool, color, material](std::vector<Slot> slots, std::string error) {
-        if (!error.empty()) return;
+    if (!error.empty()) BOOST_LOG_TRIVIAL(error) << "BMCU filament synchronization: " << error;
+    bool repeat = false;
+    {
+        std::lock_guard<std::mutex> lock(filament_sync_mutex);
+        const auto it = filament_sync_queue.find(key);
+        if (it == filament_sync_queue.end()) return;
+        if (it->second.revision == revision) filament_sync_queue.erase(it);
+        else repeat = true;
+    }
+    if (repeat) dispatch_filament_sync(key);
+}
+
+void dispatch_filament_sync(const std::string &key)
+{
+    FilamentSync current;
+    {
+        std::lock_guard<std::mutex> lock(filament_sync_mutex);
+        const auto it = filament_sync_queue.find(key);
+        if (it == filament_sync_queue.end()) return;
+        current = it->second;
+    }
+    if (current.prusalink) {
+        const int module = current.tool / 4;
+        const Slot slot {std::string(1, char('A' + module)), current.material, current.color, {}, current.tool % 4,
+            current.tool, true, std::string(1, char('A' + module)) + std::to_string(current.tool % 4 + 1)};
+        update_prusalink(current.endpoint, current.api_key, slot, current.material, current.color,
+            [key, revision = current.revision](std::string result) { complete_filament_sync(key, revision, result); });
+        return;
+    }
+    discover(current.endpoint, current.api_key, [key, current](std::vector<Slot> slots, std::string error) {
+        if (!error.empty()) {
+            complete_filament_sync(key, current.revision, error);
+            return;
+        }
+        {
+            std::lock_guard<std::mutex> lock(filament_sync_mutex);
+            const auto it = filament_sync_queue.find(key);
+            if (it == filament_sync_queue.end()) return;
+            if (it->second.revision != current.revision) {
+                error = "Superseded";
+            }
+        }
+        if (error == "Superseded") {
+            complete_filament_sync(key, current.revision, {});
+            return;
+        }
         for (const Slot &slot : slots) {
-            if (slot.ready && slot.tool == tool) {
-                set_filament(endpoint, api_key, slot, material.empty() ? slot.material : material, color, {});
+            if (slot.ready && slot.tool == current.tool) {
+                set_filament(current.endpoint, current.api_key, slot,
+                    current.material.empty() ? slot.material : current.material, current.color,
+                    [key, revision = current.revision](std::string result) {
+                        complete_filament_sync(key, revision, result);
+                    });
                 return;
             }
         }
+        complete_filament_sync(key, current.revision, "Logical tool not assigned to a ready BMCU channel");
     });
+}
+}
+
+void queue_filament_sync(const std::string &endpoint, const std::string &api_key, int tool,
+    const std::string &color, const std::string &material, bool prusalink)
+{
+    if (!valid_endpoint(endpoint) || tool < 0 || !valid_color(color)) return;
+    const auto key = endpoint + (prusalink ? "#prusalink#" : "#moonraker#") + std::to_string(tool);
+    bool start = false;
+    {
+        std::lock_guard<std::mutex> lock(filament_sync_mutex);
+        const auto it = filament_sync_queue.find(key);
+        if (it == filament_sync_queue.end()) {
+            filament_sync_queue.emplace(key, FilamentSync {endpoint, api_key, material, color, tool, 1, prusalink});
+            start = true;
+        } else {
+            it->second.api_key = api_key;
+            it->second.material = material;
+            it->second.color = color;
+            ++it->second.revision;
+        }
+    }
+    if (start) dispatch_filament_sync(key);
+}
+
+void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material)
+{
+    queue_filament_sync(endpoint, api_key, tool, color, material, false);
 }
 
 void sync_from_slicer(int tool, const std::string &material, const std::string &color)
@@ -416,7 +508,7 @@ void sync_from_slicer(int tool, const std::string &material, const std::string &
     if (endpoint.empty()) return;
     if (endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
     const auto api_key = physical ? physical->opt_string("printhost_apikey") : std::string {};
-    if (transport == "prusalink") update_prusalink(endpoint, api_key, slot, material, color, {});
+    if (transport == "prusalink") queue_filament_sync(endpoint, api_key, tool, color, material, true);
     else if (transport == "moonraker") sync_filament(endpoint, api_key, tool, color, material);
 }
 
