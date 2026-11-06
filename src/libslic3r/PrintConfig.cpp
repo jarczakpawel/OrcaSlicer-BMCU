@@ -7151,6 +7151,23 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("G-code or macro call to inject at print start for each mode.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionStrings());
+    def = this->add("bmcu_enabled", coBool);
+    def->label = L("Enable BMCU");
+    def->tooltip = L("Enable BMCU device discovery and live filament synchronization for this printer only.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("bmcu_transport", coString);
+    def->label = L("BMCU connection");
+    def->tooltip = L("moonraker, prusalink or prusaconnect. Cloud synchronization needs a supported Prusa Connect transport.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString("moonraker"));
+
+    def = this->add("bmcu_endpoint", coString);
+    def->label = L("BMCU API address");
+    def->tooltip = L("Moonraker or PrusaLink URL. Leave empty to use the configured print host. Do not enter passwords here.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString());
 
     def = this->add("manual_filament_change", coBool);
     def->label = L("Manual Filament Change");
