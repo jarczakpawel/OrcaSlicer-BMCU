@@ -1,0 +1,12 @@
+{
+	"type": "machine_model",
+	"name": "Prusa MK4S BMCU",
+	"bed_model": "mk4_bed.stl",
+	"bed_texture": "mk4s.svg",
+	"default_materials": "Generic PLA @Prusa MK4S BMCU;Generic PETG @Prusa MK4S BMCU;Generic ABS @Prusa MK4S BMCU;Generic ASA @Prusa MK4S BMCU;Prusament PLA @Prusa MK4S BMCU;Prusament PETG @Prusa MK4S BMCU",
+	"family": "Prusa",
+	"hotend_model": "",
+	"machine_tech": "FFF",
+	"model_id": "MK4SBMCU",
+	"nozzle_diameter": "0.4;0.6"
+}

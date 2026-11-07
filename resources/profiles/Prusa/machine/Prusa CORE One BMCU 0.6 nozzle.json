@@ -1,0 +1,22 @@
+{
+	"type": "machine",
+	"name": "Prusa CORE One BMCU 0.6 nozzle",
+	"inherits": "fdm_machine_common_coreone_bmcu",
+	"from": "system",
+	"instantiation": "true",
+	"setting_id": "c49549f34a207544",
+	"max_layer_height": "0.40",
+	"min_layer_height": "0.15",
+	"nozzle_diameter": [
+		"0.6"
+	],
+	"printer_variant": "0.6",
+	"retraction_length": "0.7",
+	"wipe": "1",
+	"printer_model": "Prusa CORE One BMCU",
+	"default_filament_profile": [
+		"Generic PLA @Prusa CORE One BMCU"
+	],
+	"default_print_profile": "0.20mm SPEED @COREONE0.6 + BMCU",
+	"printer_notes": "Don't remove the following keywords! These keywords are used in the \"compatible printer\" condition of the print and filament profiles to link the particular print and filament profiles to this printer profile.\nPRINTER_MODEL_COREONEBMCU\nCOREBMCU\nRAMMING_EXTRA\nPG\nNO_TEMPLATES"
+}

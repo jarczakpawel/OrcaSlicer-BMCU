@@ -1,0 +1,11 @@
+{
+	"type": "process",
+	"name": "0.20mm SPEED @COREONE0.4 + BMCU",
+	"inherits": "0.20mm SPEED @COREONE0.4 + MMU3",
+	"from": "system",
+	"setting_id": "263641ef5e3417a4",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa CORE One BMCU 0.4 nozzle"
+	]
+}

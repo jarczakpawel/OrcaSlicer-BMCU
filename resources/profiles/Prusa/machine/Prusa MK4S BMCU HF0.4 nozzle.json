@@ -1,0 +1,24 @@
+{
+	"type": "machine",
+	"name": "Prusa MK4S BMCU HF0.4 nozzle",
+	"inherits": "fdm_machine_common_mk4s_bmcu",
+	"from": "system",
+	"instantiation": "true",
+	"setting_id": "db19e7e744206d8e",
+	"printer_variant": "HF0.4",
+	"nozzle_diameter": [
+		"0.4"
+	],
+	"max_layer_height": [
+		"0.25"
+	],
+	"min_layer_height": [
+		"0.07"
+	],
+	"printer_model": "Prusa MK4S BMCU",
+	"default_filament_profile": [
+		"Generic PLA @Prusa MK4S BMCU"
+	],
+	"default_print_profile": "0.20mm SPEED @MK4S BMCU HF0.4",
+	"printer_notes": "Don't remove the following keywords! These keywords are used in the compatible printer and filament profiles.\nPRINTER_MODEL_MK4IS\nPRINTER_MODEL_MK4S\nPRINTER_MODEL_MK4SBMCU\nPG\nHF_NOZZLE\n\nRAMMING_EXTRA"
+}

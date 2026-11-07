@@ -1,0 +1,12 @@
+{
+	"type": "filament",
+	"name": "Generic PLA @Prusa CORE One BMCU",
+	"inherits": "Generic PLA @Prusa CORE One",
+	"from": "system",
+	"setting_id": "e8a004a51b9f5d17",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa CORE One BMCU 0.4 nozzle",
+		"Prusa CORE One BMCU 0.6 nozzle"
+	]
+}

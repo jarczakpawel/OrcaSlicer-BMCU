@@ -1,0 +1,12 @@
+{
+	"type": "filament",
+	"name": "Prusament PLA @Prusa CORE One BMCU",
+	"inherits": "Prusament PLA @CORE One",
+	"from": "system",
+	"setting_id": "0c02012760f1e505",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa CORE One BMCU 0.4 nozzle",
+		"Prusa CORE One BMCU 0.6 nozzle"
+	]
+}

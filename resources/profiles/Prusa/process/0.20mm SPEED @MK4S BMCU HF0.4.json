@@ -1,0 +1,11 @@
+{
+	"type": "process",
+	"name": "0.20mm SPEED @MK4S BMCU HF0.4",
+	"inherits": "0.20mm SPEED @MK4S MMU3 HF0.4",
+	"from": "system",
+	"setting_id": "f36e8936b116fd3e",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa MK4S BMCU HF0.4 nozzle"
+	]
+}

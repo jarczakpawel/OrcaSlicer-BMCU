@@ -1,0 +1,13 @@
+{
+	"type": "filament",
+	"name": "Prusament PETG @Prusa MK4S BMCU",
+	"inherits": "Prusament PETG @Prusa MK4S MMU3",
+	"from": "system",
+	"setting_id": "cc5e40763ede987b",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa MK4S BMCU 0.4 nozzle",
+		"Prusa MK4S BMCU HF0.4 nozzle",
+		"Prusa MK4S BMCU 0.6 nozzle"
+	]
+}

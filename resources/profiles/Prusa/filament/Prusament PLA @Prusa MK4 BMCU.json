@@ -1,0 +1,13 @@
+{
+	"type": "filament",
+	"name": "Prusament PLA @Prusa MK4 BMCU",
+	"inherits": "Prusament PLA @MK4 MMU3",
+	"from": "system",
+	"setting_id": "07e36ffeec876ce8",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa MK4 BMCU 0.4 nozzle",
+		"Prusa MK4 BMCU HF0.4 nozzle",
+		"Prusa MK4 BMCU 0.6 nozzle"
+	]
+}

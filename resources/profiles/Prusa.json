@@ -1,6 +1,6 @@
 {
 	"name": "Prusa",
-	"version": "02.04.00.18",
+	"version": "02.04.00.19",
 	"force_update": "0",
 	"description": "Prusa configurations",
 	"machine_model_list": [
@@ -83,6 +83,18 @@
 		{
 			"name": "Prusa XL 5T",
 			"sub_path": "machine/Prusa XL 5T.json"
+		},
+		{
+			"name": "Prusa MK4 BMCU",
+			"sub_path": "machine/Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Prusa MK4S BMCU",
+			"sub_path": "machine/Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Prusa CORE One BMCU",
+			"sub_path": "machine/Prusa CORE One BMCU.json"
 		}
 	],
 	"process_list": [
@@ -1589,6 +1601,38 @@
 		{
 			"name": "0.20mm SPEED @COREONE0.3 + MMU3",
 			"sub_path": "process/0.20mm SPEED @COREONE0.3 + MMU3.json"
+		},
+		{
+			"name": "0.20mm SPEED @MK4 BMCU 0.4",
+			"sub_path": "process/0.20mm SPEED @MK4 BMCU 0.4.json"
+		},
+		{
+			"name": "0.20mm SPEED @MK4 BMCU HF0.4",
+			"sub_path": "process/0.20mm SPEED @MK4 BMCU HF0.4.json"
+		},
+		{
+			"name": "0.25mm SPEED @MK4 BMCU 0.6",
+			"sub_path": "process/0.25mm SPEED @MK4 BMCU 0.6.json"
+		},
+		{
+			"name": "0.20mm SPEED @MK4S BMCU 0.4",
+			"sub_path": "process/0.20mm SPEED @MK4S BMCU 0.4.json"
+		},
+		{
+			"name": "0.20mm SPEED @MK4S BMCU HF0.4",
+			"sub_path": "process/0.20mm SPEED @MK4S BMCU HF0.4.json"
+		},
+		{
+			"name": "0.25mm SPEED @MK4S BMCU 0.6",
+			"sub_path": "process/0.25mm SPEED @MK4S BMCU 0.6.json"
+		},
+		{
+			"name": "0.20mm SPEED @COREONE0.4 + BMCU",
+			"sub_path": "process/0.20mm SPEED @COREONE0.4 + BMCU.json"
+		},
+		{
+			"name": "0.20mm SPEED @COREONE0.6 + BMCU",
+			"sub_path": "process/0.20mm SPEED @COREONE0.6 + BMCU.json"
 		}
 	],
 	"filament_list": [
@@ -3067,6 +3111,78 @@
 		{
 			"name": "Generic TPU @Prusa CORE One 0.8",
 			"sub_path": "filament/Generic TPU @Prusa CORE One 0.8.json"
+		},
+		{
+			"name": "Generic PLA @Prusa MK4 BMCU",
+			"sub_path": "filament/Generic PLA @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Generic PETG @Prusa MK4 BMCU",
+			"sub_path": "filament/Generic PETG @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Generic ABS @Prusa MK4 BMCU",
+			"sub_path": "filament/Generic ABS @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Generic ASA @Prusa MK4 BMCU",
+			"sub_path": "filament/Generic ASA @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Prusament PLA @Prusa MK4 BMCU",
+			"sub_path": "filament/Prusament PLA @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Prusament PETG @Prusa MK4 BMCU",
+			"sub_path": "filament/Prusament PETG @Prusa MK4 BMCU.json"
+		},
+		{
+			"name": "Generic PLA @Prusa MK4S BMCU",
+			"sub_path": "filament/Generic PLA @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Generic PETG @Prusa MK4S BMCU",
+			"sub_path": "filament/Generic PETG @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Generic ABS @Prusa MK4S BMCU",
+			"sub_path": "filament/Generic ABS @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Generic ASA @Prusa MK4S BMCU",
+			"sub_path": "filament/Generic ASA @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Prusament PLA @Prusa MK4S BMCU",
+			"sub_path": "filament/Prusament PLA @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Prusament PETG @Prusa MK4S BMCU",
+			"sub_path": "filament/Prusament PETG @Prusa MK4S BMCU.json"
+		},
+		{
+			"name": "Generic PLA @Prusa CORE One BMCU",
+			"sub_path": "filament/Generic PLA @Prusa CORE One BMCU.json"
+		},
+		{
+			"name": "Generic PETG @Prusa CORE One BMCU",
+			"sub_path": "filament/Generic PETG @Prusa CORE One BMCU.json"
+		},
+		{
+			"name": "Generic ABS @Prusa CORE One BMCU",
+			"sub_path": "filament/Generic ABS @Prusa CORE One BMCU.json"
+		},
+		{
+			"name": "Generic ASA @Prusa CORE One BMCU",
+			"sub_path": "filament/Generic ASA @Prusa CORE One BMCU.json"
+		},
+		{
+			"name": "Prusament PLA @Prusa CORE One BMCU",
+			"sub_path": "filament/Prusament PLA @Prusa CORE One BMCU.json"
+		},
+		{
+			"name": "Prusament PETG @Prusa CORE One BMCU",
+			"sub_path": "filament/Prusament PETG @Prusa CORE One BMCU.json"
 		}
 	],
 	"machine_list": [
@@ -3389,6 +3505,50 @@
 		{
 			"name": "Prusa MK4S HF0.8 nozzle",
 			"sub_path": "machine/Prusa MK4S HF0.8 nozzle.json"
+		},
+		{
+			"name": "fdm_machine_common_mk4_bmcu",
+			"sub_path": "machine/fdm_machine_common_mk4_bmcu.json"
+		},
+		{
+			"name": "Prusa MK4 BMCU 0.4 nozzle",
+			"sub_path": "machine/Prusa MK4 BMCU 0.4 nozzle.json"
+		},
+		{
+			"name": "Prusa MK4 BMCU HF0.4 nozzle",
+			"sub_path": "machine/Prusa MK4 BMCU HF0.4 nozzle.json"
+		},
+		{
+			"name": "Prusa MK4 BMCU 0.6 nozzle",
+			"sub_path": "machine/Prusa MK4 BMCU 0.6 nozzle.json"
+		},
+		{
+			"name": "fdm_machine_common_mk4s_bmcu",
+			"sub_path": "machine/fdm_machine_common_mk4s_bmcu.json"
+		},
+		{
+			"name": "Prusa MK4S BMCU 0.4 nozzle",
+			"sub_path": "machine/Prusa MK4S BMCU 0.4 nozzle.json"
+		},
+		{
+			"name": "Prusa MK4S BMCU HF0.4 nozzle",
+			"sub_path": "machine/Prusa MK4S BMCU HF0.4 nozzle.json"
+		},
+		{
+			"name": "Prusa MK4S BMCU 0.6 nozzle",
+			"sub_path": "machine/Prusa MK4S BMCU 0.6 nozzle.json"
+		},
+		{
+			"name": "fdm_machine_common_coreone_bmcu",
+			"sub_path": "machine/fdm_machine_common_coreone_bmcu.json"
+		},
+		{
+			"name": "Prusa CORE One BMCU 0.4 nozzle",
+			"sub_path": "machine/Prusa CORE One BMCU 0.4 nozzle.json"
+		},
+		{
+			"name": "Prusa CORE One BMCU 0.6 nozzle",
+			"sub_path": "machine/Prusa CORE One BMCU 0.6 nozzle.json"
 		}
 	]
 }
