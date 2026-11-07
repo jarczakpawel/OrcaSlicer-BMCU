@@ -65,6 +65,18 @@ BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std
         auto *advanced = new wxButton(this, wxID_ANY, "Full BMCU controls");
         actions->Add(advanced, 0, wxALL, 8);
         advanced->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { open_full_panel(); });
+    } else if (m_transport == "prusalink") {
+        auto *external = new wxButton(this, wxID_ANY, "External spool");
+        actions->Add(external, 0, wxALL, 8);
+        external->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+            m_status->SetLabel("Selecting external spool...");
+            auto guard = m_alive;
+            BMCU::select_prusalink(m_endpoint, m_api_key, 16, [this, guard](std::string error) {
+                wxTheApp->CallAfter([this, guard, error = std::move(error)] {
+                    if (guard->load()) m_status->SetLabel(error.empty() ? "External spool selected" : wxString::FromUTF8(error.c_str()));
+                });
+            });
+        });
     }
     actions->Add(m_status, 1, wxALIGN_CENTER_VERTICAL | wxALL, 8);
     layout->Add(actions, 0, wxEXPAND);
