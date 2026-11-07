@@ -7160,15 +7160,15 @@ void PrintConfigDef::init_fff_params()
     def = this->add("bmcu_transport", coString);
     def->label = L("BMCU connection");
     def->gui_type = ConfigOptionDef::GUIType::select_open;
-    def->enum_values = { "moonraker", "prusalink", "prusaconnect" };
-    def->enum_labels = { "Moonraker", "PrusaLink", "Prusa Connect" };
-    def->tooltip = L("moonraker, prusalink or prusaconnect. Cloud synchronization needs a supported Prusa Connect transport.");
+    def->enum_values = { "moonraker", "prusalink" };
+    def->enum_labels = { "Moonraker", "PrusaLink" };
+    def->tooltip = L("Moonraker or local PrusaLink. Prusa Connect cannot update BMCU metadata; its transport is retained for compatibility only.");
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString("moonraker"));
 
     def = this->add("bmcu_modules", coInt);
     def->label = L("BMCU module count");
-    def->tooltip = L("Used only when Prusa Connect cannot discover physical modules. One module has four channels.");
+    def->tooltip = L("Number of BMCU modules configured on this printer. One module has four channels.");
     def->min = 1;
     def->max = 4;
     def->mode = comAdvanced;

@@ -6,8 +6,6 @@
 #include <wx/dialog.h>
 #include <atomic>
 #include <memory>
-#include <map>
-#include <wx/timer.h>
 #include <string>
 #include <vector>
 
@@ -25,8 +23,7 @@ void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &c
 
 class BMCUDialog final : public wxDialog {
 public:
-    BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key,
-        int modules, const DynamicPrintConfig *print_host);
+    BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key);
     ~BMCUDialog() override;
 
 private:
@@ -34,17 +31,11 @@ private:
     void open_full_panel();
     void show_slots(const std::vector<BMCU::Slot> &slots);
     void update(const BMCU::Slot &slot, const std::string &material, const std::string &color);
-    void flush_prusa();
 
     std::string m_transport;
     std::string m_endpoint;
     std::string m_api_key;
     std::shared_ptr<std::atomic_bool> m_alive;
-    std::unique_ptr<DynamicPrintConfig> m_print_host;
-    std::map<int, BMCU::Slot> m_pending;
-    wxTimer m_timer;
-    int m_modules;
-    bool m_sending = false;
     wxScrolledWindow *m_scroll;
     wxBoxSizer *m_rows;
     wxStaticText *m_status;

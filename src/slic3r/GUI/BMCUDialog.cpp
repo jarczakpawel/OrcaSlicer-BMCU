@@ -41,7 +41,7 @@ void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &c
             if (endpoint.empty()) endpoint = physical->opt_string("print_host");
             if (!endpoint.empty() && endpoint.find("://") == std::string::npos) endpoint = "http://" + endpoint;
             BMCUDialog(parent, config.opt_string("bmcu_transport"), endpoint,
-                physical->opt_string("printhost_apikey"), config.opt_int("bmcu_modules"), physical).ShowModal();
+                physical->opt_string("printhost_apikey")).ShowModal();
         });
         layout->Add(button, 0, wxALL, 2);
         return layout;
@@ -49,16 +49,12 @@ void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &c
     group.append_line(line);
 }
 
-BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key,
-    int modules, const DynamicPrintConfig *print_host)
+BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std::string &endpoint, const std::string &api_key)
     : wxDialog(parent, wxID_ANY, "BMCU", wxDefaultPosition, wxSize(760, 540), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
     , m_transport(transport)
     , m_endpoint(endpoint)
     , m_api_key(api_key)
     , m_alive(std::make_shared<std::atomic_bool>(true))
-    , m_print_host(print_host ? std::make_unique<DynamicPrintConfig>(*print_host) : nullptr)
-    , m_timer(this)
-    , m_modules(std::max(1, std::min(modules, 4)))
 {
     auto *layout = new wxBoxSizer(wxVERTICAL);
     auto *actions = new wxBoxSizer(wxHORIZONTAL);
@@ -73,10 +69,10 @@ BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std
     actions->Add(m_status, 1, wxALIGN_CENTER_VERTICAL | wxALL, 8);
     layout->Add(actions, 0, wxEXPAND);
     const char *capabilities = m_transport == "moonraker"
-        ? "Klipper / Moonraker: live device detection, color and material sync, and full BMCU controls."
+        ? "Klipper / Moonraker: live BMCU device detection and filament synchronization."
         : m_transport == "prusalink"
-        ? "PrusaLink (local): live BMCU status and direct color/material updates. Printer toolchanges require compatible firmware."
-        : "Prusa Connect: uploads a small G-code print job; remote discovery and execution confirmation are not available.";
+        ? "PrusaLink (local): BMCU status and direct color/material updates require compatible BMCU Buddy firmware."
+        : "Prusa Connect does not expose a BMCU metadata API. Cloud changes are disabled; use PrusaLink on the local network.";
     auto *capability_notice = new wxStaticText(this, wxID_ANY, capabilities);
     capability_notice->Wrap(670);
     layout->Add(capability_notice, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
@@ -91,7 +87,6 @@ BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std
     layout->Add(close, 0, wxALIGN_RIGHT | wxALL, 10);
     close->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { EndModal(wxID_CLOSE); });
     m_refresh->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) { refresh(); });
-    Bind(wxEVT_TIMER, [this](wxTimerEvent &) { flush_prusa(); }, m_timer.GetId());
     SetSizer(layout);
     CentreOnParent();
     refresh();
@@ -100,7 +95,6 @@ BMCUDialog::BMCUDialog(wxWindow *parent, const std::string &transport, const std
 BMCUDialog::~BMCUDialog()
 {
     m_alive->store(false);
-    m_timer.Stop();
 }
 
 void BMCUDialog::refresh()
@@ -108,13 +102,7 @@ void BMCUDialog::refresh()
     m_rows->Clear(true);
     m_scroll->FitInside();
     if (m_transport == "prusaconnect") {
-        std::vector<BMCU::Slot> slots;
-        for (int source = 0; source < m_modules * 4; ++source) {
-            const auto module = source / 4;
-            slots.push_back(BMCU::Slot { std::string(1, char('A' + module)), "", "#FFFFFF", "Not verified via Connect",
-                source % 4, source, false, std::string(1, char('A' + module)) + std::to_string(source % 4 + 1) });
-        }
-        show_slots(slots);
+        m_status->SetLabel("BMCU updates over Prusa Connect are not supported; select PrusaLink instead");
         return;
     }
     if (m_transport != "moonraker" && m_transport != "prusalink") {
@@ -180,7 +168,7 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
     size_t connected = 0;
     for (const auto &slot : slots) {
         if (slot.ready) ++connected;
-        const bool editable = slot.ready || m_transport == "prusaconnect";
+        const bool editable = slot.ready;
         if (slot.channel == 0) {
             auto *heading = new wxStaticText(m_scroll, wxID_ANY, "BMCU " + wxString::FromUTF8(slot.label.substr(0, 1).c_str()));
             auto font = heading->GetFont();
@@ -204,7 +192,7 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
         auto *material = new wxComboBox(m_scroll, wxID_ANY, wxString::FromUTF8(slot.material.c_str()), wxDefaultPosition, wxSize(110, -1), materials, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
         line->Add(material, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 12);
 
-        auto *state = new wxStaticText(m_scroll, wxID_ANY, slot.ready || m_transport == "prusaconnect" ? wxString::FromUTF8(slot.state.c_str()) : "Offline");
+        auto *state = new wxStaticText(m_scroll, wxID_ANY, slot.ready ? wxString::FromUTF8(slot.state.c_str()) : "Offline");
         line->Add(state, 1, wxALIGN_CENTER_VERTICAL);
         picker->Enable(editable);
         material->Enable(editable);
@@ -245,7 +233,7 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
 
         m_rows->Add(line, 0, wxEXPAND | wxALL, 8);
     }
-    m_status->SetLabel(m_transport == "prusaconnect" ? wxString::Format("%zu configured slots, cloud discovery unavailable", slots.size()) : wxString::Format("%zu slots, %zu online", slots.size(), connected));
+    m_status->SetLabel(wxString::Format("%zu slots, %zu online", slots.size(), connected));
     m_scroll->Layout();
     m_scroll->FitInside();
 }
@@ -263,16 +251,7 @@ void BMCUDialog::update(const BMCU::Slot &slot, const std::string &material, con
         return;
     }
     if (m_transport == "prusaconnect") {
-        auto changed = slot;
-        changed.material = material;
-        changed.color = color;
-        if (material.empty()) {
-            m_status->SetLabel("Select a filament material first");
-            return;
-        }
-        m_pending[slot.tool] = std::move(changed);
-        m_timer.StartOnce(900);
-        m_status->SetLabel("BMCU configuration queued for Prusa upload");
+        m_status->SetLabel("Prusa Connect cannot update BMCU metadata; use PrusaLink");
         return;
     }
     auto guard = m_alive;
@@ -280,30 +259,6 @@ void BMCUDialog::update(const BMCU::Slot &slot, const std::string &material, con
         wxTheApp->CallAfter([this, guard, label, error = std::move(error)] {
             if (!guard->load()) return;
             m_status->SetLabel(error.empty() ? "Updated " + wxString::FromUTF8(label.c_str()) : wxString::FromUTF8(error.c_str()));
-        });
-    });
-}
-
-void BMCUDialog::flush_prusa()
-{
-    if (m_sending || m_pending.empty()) return;
-    if (!m_print_host) {
-        m_status->SetLabel("Select a PrusaLink / Prusa Connect physical printer");
-        return;
-    }
-    std::vector<BMCU::Slot> updates;
-    updates.reserve(m_pending.size());
-    for (const auto &[source, slot] : m_pending) updates.push_back(slot);
-    m_pending.clear();
-    m_sending = true;
-    m_status->SetLabel("Uploading BMCU configuration G-code...");
-    auto guard = m_alive;
-    BMCU::send_prusa(*m_print_host, updates, [this, guard](std::string error) {
-        wxTheApp->CallAfter([this, guard, error = std::move(error)] {
-            if (!guard->load()) return;
-            m_sending = false;
-            m_status->SetLabel(error.empty() ? "Prusa upload accepted; waiting for printer execution" : wxString::FromUTF8(error.c_str()));
-            if (!m_pending.empty()) m_timer.StartOnce(1500);
         });
     });
 }

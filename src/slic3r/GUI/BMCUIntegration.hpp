@@ -30,8 +30,6 @@ void set_filament(const std::string &endpoint, const std::string &api_key, const
 void discover_panel(const std::string &endpoint, const std::string &api_key, UpdateCallback callback);
 void update_prusalink(const std::string &endpoint, const std::string &api_key, const Slot &slot, const std::string &material, const std::string &color, UpdateCallback callback);
 void discover_prusalink(const std::string &endpoint, const std::string &api_key, SlotsCallback callback);
-void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots, UpdateCallback callback);
-void queue_prusa(const DynamicPrintConfig &config, const Slot &slot);
 void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material = {});
 void sync_from_slicer(int tool, const std::string &material, const std::string &color);
 void sync_slicer_color(int tool);

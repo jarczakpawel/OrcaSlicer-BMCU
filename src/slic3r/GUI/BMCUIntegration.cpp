@@ -2,7 +2,6 @@
 #include "GUI_App.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "slic3r/Utils/Http.hpp"
-#include "slic3r/Utils/PrintHost.hpp"
 #include "libslic3r/PrintConfig.hpp"
 
 #include <nlohmann/json.hpp>
@@ -11,15 +10,10 @@
 #include <array>
 #include <cctype>
 #include <memory>
-#include <boost/filesystem.hpp>
 #include <cstdio>
-#include <fstream>
 #include <mutex>
-#include <thread>
 #include <stdexcept>
-#include <chrono>
 #include <map>
-#include <iterator>
 #include <utility>
 
 namespace Slic3r::GUI::BMCU {
@@ -255,127 +249,6 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
     http.perform();
 }
 
-void send_prusa(const DynamicPrintConfig &config, const std::vector<Slot> &slots, UpdateCallback callback)
-{
-    if (slots.empty()) {
-        callback("No slots selected");
-        return;
-    }
-    const auto host_type = config.option<ConfigOptionEnum<PrintHostType>>("host_type");
-    if (!host_type || (host_type->value != htPrusaLink && host_type->value != htPrusaConnect)) {
-        callback("Select a PrusaLink or Prusa Connect physical printer first");
-        return;
-    }
-    std::string gcode = "; OrcaSlicer-BMCU metadata synchronization\n";
-    for (const Slot &slot : slots) {
-        if (slot.tool < 0 || slot.tool >= 16 || !valid_color(slot.color)) {
-            callback("Invalid Prusa BMCU slot or color");
-            return;
-        }
-        auto material = upper(slot.material);
-        if (material == "TPU") material = "FLEX";
-        if (std::find_if(prusa_materials.begin(), prusa_materials.end(), [&material](const char *value) { return material == value; }) == prusa_materials.end()) {
-            callback("Unsupported Prusa filament material: " + material);
-            return;
-        }
-        unsigned red = 0, green = 0, blue = 0;
-        if (std::sscanf(slot.color.c_str(), "#%02X%02X%02X", &red, &green, &blue) != 3 || red > 255 || green > 255 || blue > 255) {
-            callback("Invalid color");
-            return;
-        }
-        gcode += "M8735 T" + std::to_string(slot.tool) + " R" + std::to_string(red) + " G" + std::to_string(green)
-            + " B" + std::to_string(blue) + " S\"" + material + "\"\n";
-    }
-    const bool via_connect = host_type->value == htPrusaConnect;
-    auto saved = std::make_shared<DynamicPrintConfig>(config);
-    std::thread([saved, via_connect, gcode = std::move(gcode), callback = std::move(callback)] {
-        boost::filesystem::path filename;
-        std::string error;
-        try {
-            filename = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("bmcu-sync-%%%%%%%%.gcode");
-            {
-                std::ofstream file(filename.string(), std::ios::binary | std::ios::trunc);
-                if (!file || !(file << gcode)) throw std::runtime_error("Cannot write BMCU G-code file");
-            }
-            std::unique_ptr<PrintHost> host(PrintHost::get_print_host(saved.get()));
-            if (!host) throw std::runtime_error("Prusa print host is unavailable");
-            PrintHostUpload upload;
-            upload.source_path = filename;
-            upload.upload_path = via_connect ? filename.filename() : boost::filesystem::path("BMCU_SYNC.gcode");
-            upload.post_action = PrintHostPostUploadAction::StartPrint;
-            if (!host->upload(std::move(upload), [](Http::Progress, bool &) {},
-                    [&error](wxString message) { error = message.ToStdString(); },
-                    [](wxString, wxString) {})) {
-                if (error.empty()) error = "Prusa Connect/Link upload failed";
-            }
-        } catch (const std::exception &exception) {
-            error = exception.what();
-        }
-        if (!filename.empty()) {
-            boost::system::error_code ignored;
-            boost::filesystem::remove(filename, ignored);
-        }
-        callback(std::move(error));
-    }).detach();
-}
-
-namespace {
-struct PrusaQueue {
-    std::mutex mutex;
-    std::map<int, Slot> pending;
-    std::shared_ptr<DynamicPrintConfig> config;
-    bool active = false;
-};
-
-PrusaQueue &prusa_queue()
-{
-    static PrusaQueue queue;
-    return queue;
-}
-
-void flush_prusa_queue()
-{
-    std::this_thread::sleep_for(std::chrono::milliseconds(900));
-    auto &queue = prusa_queue();
-    std::vector<Slot> updates;
-    std::shared_ptr<DynamicPrintConfig> config;
-    {
-        std::lock_guard<std::mutex> lock(queue.mutex);
-        for (const auto &[source, slot] : queue.pending) updates.push_back(slot);
-        queue.pending.clear();
-        config = queue.config;
-    }
-    send_prusa(*config, updates, [](std::string error) {
-        if (!error.empty()) BOOST_LOG_TRIVIAL(error) << "BMCU Prusa synchronization failed: " << error;
-        auto &queue = prusa_queue();
-        bool repeat = false;
-        {
-            std::lock_guard<std::mutex> lock(queue.mutex);
-            repeat = !queue.pending.empty();
-            if (!repeat) queue.active = false;
-        }
-        if (repeat) std::thread(flush_prusa_queue).detach();
-    });
-}
-}
-
-void queue_prusa(const DynamicPrintConfig &config, const Slot &slot)
-{
-    if (slot.tool < 0 || slot.tool >= 16 || !valid_color(slot.color)) return;
-    auto &queue = prusa_queue();
-    bool start = false;
-    {
-        std::lock_guard<std::mutex> lock(queue.mutex);
-        queue.pending[slot.tool] = slot;
-        queue.config = std::make_shared<DynamicPrintConfig>(config);
-        if (!queue.active) {
-            queue.active = true;
-            start = true;
-        }
-    }
-    if (start) std::thread(flush_prusa_queue).detach();
-}
-
 namespace {
 struct FilamentSync {
     std::string endpoint;
@@ -525,10 +398,7 @@ void sync_from_slicer(int tool, const std::string &material, const std::string &
     const int module = tool / 4;
     Slot slot {std::string(1, char('A' + module)), material, color, {}, tool % 4, tool, true,
         std::string(1, char('A' + module)) + std::to_string(tool % 4 + 1)};
-    if (transport == "prusaconnect") {
-        queue_prusa(*physical, slot);
-        return;
-    }
+    if (transport == "prusaconnect") return;
     auto endpoint = printer.opt_string("bmcu_endpoint");
     if (endpoint.empty()) endpoint = physical ? physical->opt_string("print_host") : printer.opt_string("print_host");
     if (endpoint.empty()) return;
