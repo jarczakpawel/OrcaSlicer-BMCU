@@ -1,0 +1,22 @@
+{
+	"type": "filament",
+	"name": "Prusament PLA @Prusa MK4S MMU3",
+	"inherits": "Prusament PLA @MK4 MMU3",
+	"from": "system",
+	"setting_id": "cf3ed9c8a1ba2f07",
+	"instantiation": "true",
+	"include": [
+		"fdm_filament_template_nextruder_pla"
+	],
+	"compatible_printers": [
+		"Prusa MK4S MMU3 0.4 nozzle",
+		"Prusa MK4S MMU3 HF0.4 nozzle",
+		"Prusa MK4S MMU3 0.6 nozzle"
+	],
+	"filament_unloading_speed": [
+		"100"
+	],
+	"filament_unloading_speed_start": [
+		"100"
+	]
+}

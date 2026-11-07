@@ -1,0 +1,19 @@
+{
+	"type": "filament",
+	"name": "Generic ASA @Prusa MK4S MMU3",
+	"inherits": "Generic ASA @Prusa MK4 MMU3",
+	"from": "system",
+	"setting_id": "147be71d44532ef2",
+	"instantiation": "true",
+	"include": [
+		"fdm_filament_template_nextruder_pet"
+	],
+	"compatible_printers": [
+		"Prusa MK4S MMU3 0.4 nozzle",
+		"Prusa MK4S MMU3 HF0.4 nozzle",
+		"Prusa MK4S MMU3 0.6 nozzle"
+	],
+	"filament_minimal_purge_on_wipe_tower": [
+		"35"
+	]
+}

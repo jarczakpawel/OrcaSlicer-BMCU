@@ -1,0 +1,11 @@
+{
+	"type": "process",
+	"name": "0.25mm SPEED @MK4S MMU3 0.6",
+	"inherits": "0.25mm SPEED @MK4 MMU3 0.6",
+	"from": "system",
+	"setting_id": "f1e20aeafc39e9b1",
+	"instantiation": "true",
+	"compatible_printers": [
+		"Prusa MK4S MMU3 0.6 nozzle"
+	]
+}
