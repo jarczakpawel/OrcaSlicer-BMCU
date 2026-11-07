@@ -213,6 +213,8 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
             const auto document = nlohmann::json::parse(body);
             const auto &modules = document.at("modules");
             if (!modules.is_array() || document.value("schema", 0) != 1) throw std::runtime_error("Invalid BMCU API response");
+            const int active_source = document.value("active_source", -1);
+            const bool reload_pending = document.value("reload_pending", false);
             std::vector<Slot> slots;
             for (const auto &module : modules) {
                 if (!module.is_object() || !module.value("online", false)) continue;
@@ -231,9 +233,12 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
                     char color[8];
                     std::snprintf(color, sizeof(color), "#%02X%02X%02X",
                         (((rgb >> 11) & 31) * 255 + 15) / 31, (((rgb >> 5) & 63) * 255 + 31) / 63, ((rgb & 31) * 255 + 15) / 31);
+                    const bool loaded = value.value("loaded", false);
+                    const char *state = source == active_source ?
+                        (reload_pending ? "Reload pending" : loaded ? "In use" : "Selected") :
+                        loaded ? "Loaded" : value.value("present", false) ? "Present" : "Empty";
                     slots.push_back(Slot { std::string(1, char('A' + index)), type,
-                        value.value("color_valid", false) ? color : "#FFFFFF",
-                        value.value("loaded", false) ? "Loaded" : value.value("present", false) ? "Present" : "Empty",
+                        value.value("color_valid", false) ? color : "#FFFFFF", state,
                         static_cast<int>(channel), source, true,
                         std::string(1, char('A' + index)) + std::to_string(channel + 1) });
                 }
