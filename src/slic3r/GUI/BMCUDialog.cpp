@@ -11,6 +11,7 @@
 #include <wx/button.h>
 #include <wx/clrpicker.h>
 #include <wx/combobox.h>
+#include <wx/msgdlg.h>
 #include <wx/scrolwin.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -31,7 +32,7 @@ void append_bmcu_settings(ConfigOptionsGroup &group, const DynamicPrintConfig &c
         auto *button = new wxButton(parent, wxID_ANY, _(L("Manage BMCU")));
         button->Bind(wxEVT_BUTTON, [&config, parent](wxCommandEvent &) {
             if (!config.opt_bool("bmcu_enabled")) {
-                MessageDialog(parent, _(L("Enable BMCU in this printer profile first.")), "BMCU", wxOK | wxICON_INFORMATION).ShowModal();
+                wxMessageDialog(parent, _(L("Enable BMCU in this printer profile first.")), "BMCU", wxOK | wxICON_INFORMATION).ShowModal();
                 return;
             }
             const DynamicPrintConfig *physical = wxGetApp().preset_bundle->physical_printers.get_selected_printer_config();
