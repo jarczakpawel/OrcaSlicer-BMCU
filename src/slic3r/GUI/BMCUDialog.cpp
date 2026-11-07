@@ -178,7 +178,11 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
         return;
     }
     size_t connected = 0;
+    bool requested = false;
+    bool reload_pending = false;
     for (const auto &slot : slots) {
+        requested |= slot.state == "Requested";
+        reload_pending |= slot.state == "Reload pending";
         if (slot.ready) ++connected;
         const bool editable = slot.ready;
         if (slot.channel == 0) {
@@ -262,7 +266,12 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
 
         m_rows->Add(line, 0, wxEXPAND | wxALL, 8);
     }
-    m_status->SetLabel(wxString::Format("%zu slots, %zu online", slots.size(), connected));
+    if (requested)
+        m_status->SetLabel("Toolchange paused: unload old filament and clear shared PTFE path on printer, then select requested slot");
+    else if (reload_pending)
+        m_status->SetLabel("BMCU reload pending: resume on printer after verifying the selected filament path");
+    else
+        m_status->SetLabel(wxString::Format("%zu slots, %zu online", slots.size(), connected));
     m_scroll->Layout();
     m_scroll->FitInside();
 }
