@@ -54,7 +54,7 @@
 	],
 	"default_print_profile": "0.20mm SPEED @COREONE0.4 + MMU3",
 	"printer_model": "Prusa CORE One MMU3",
-	"printer_notes": "Don't remove the following keywords! These keywords are used in the \"compatible printer\" condition of the print and filament profiles to link the particular print and filament profiles to this printer profile.\nPRINTER_MODEL_COREONEMMU3\nPRINTER_MODEL_MK4\nCOREMMU\nRAMMING_EXTRA\nPG\nNO_TEMPLATES\nThe MK4 marker enables WipeTower2 cold ramming and filament monitoring control for the CORE One MMU3.",
+	"printer_notes": "Don't remove the following keywords! These keywords are used in the \"compatible printer\" condition of the print and filament profiles to link the particular print and filament profiles to this printer profile.\nPRINTER_MODEL_COREONEMMU3\nCOREMMU\nRAMMING_EXTRA\nPG\nNO_TEMPLATES",
 	"retract_lift_above": [
 		"0"
 	],
