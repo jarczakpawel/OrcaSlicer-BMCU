@@ -267,7 +267,7 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
         m_rows->Add(line, 0, wxEXPAND | wxALL, 8);
     }
     if (requested)
-        m_status->SetLabel("Toolchange paused: unload old filament and clear shared PTFE path on printer, then select requested slot");
+        m_status->SetLabel("BMCU toolchange: unloading and loading automatically; if paused, inspect the filament path on the printer");
     else if (reload_pending)
         m_status->SetLabel("BMCU reload pending: resume on printer after verifying the selected filament path");
     else
