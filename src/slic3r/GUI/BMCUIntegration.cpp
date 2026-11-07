@@ -199,6 +199,26 @@ void update_prusalink(const std::string &endpoint, const std::string &api_key, c
     http.perform();
 }
 
+void select_prusalink(const std::string &endpoint, const std::string &api_key, int source, UpdateCallback callback)
+{
+    if (!valid_endpoint(endpoint) || source < 0 || source > 16) {
+        callback("Invalid PrusaLink source");
+        return;
+    }
+    auto completed = std::make_shared<bool>(false);
+    auto http = Http::post(base_url(endpoint) + "/api/v1/bmcu/select/" + std::to_string(source));
+    http.timeout_connect(4).timeout_max(10).tls_verify(true).set_post_body(std::string {});
+    if (!api_key.empty()) http.header("X-Api-Key", api_key);
+    http.on_complete([callback, completed](std::string, unsigned) {
+        *completed = true;
+        if (callback) callback({});
+    });
+    http.on_error([callback, completed](std::string, std::string error, unsigned code) {
+        if (!*completed && callback) callback(error.empty() ? "PrusaLink HTTP " + std::to_string(code) : error);
+    });
+    http.perform();
+}
+
 void discover_prusalink(const std::string &endpoint, const std::string &api_key, SlotsCallback callback)
 {
     if (!valid_endpoint(endpoint)) {

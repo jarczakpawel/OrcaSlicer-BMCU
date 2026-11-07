@@ -29,6 +29,7 @@ void discover(const std::string &endpoint, const std::string &api_key, SlotsCall
 void set_filament(const std::string &endpoint, const std::string &api_key, const Slot &slot, const std::string &material, const std::string &color, UpdateCallback callback);
 void discover_panel(const std::string &endpoint, const std::string &api_key, UpdateCallback callback);
 void update_prusalink(const std::string &endpoint, const std::string &api_key, const Slot &slot, const std::string &material, const std::string &color, UpdateCallback callback);
+void select_prusalink(const std::string &endpoint, const std::string &api_key, int source, UpdateCallback callback);
 void discover_prusalink(const std::string &endpoint, const std::string &api_key, SlotsCallback callback);
 void sync_filament(const std::string &endpoint, const std::string &api_key, int tool, const std::string &color, const std::string &material = {});
 void sync_from_slicer(int tool, const std::string &material, const std::string &color);

@@ -206,6 +206,23 @@ void BMCUDialog::show_slots(const std::vector<BMCU::Slot> &slots)
         material->Bind(wxEVT_COMBOBOX, [apply_material, material](wxCommandEvent &) { apply_material(material->GetValue()); });
         material->Bind(wxEVT_TEXT_ENTER, [apply_material, material](wxCommandEvent &) { apply_material(material->GetValue()); });
 
+        if (m_transport == "prusalink" && slot.ready && slot.tool >= 0 &&
+            slot.state != "In use" && slot.state != "Selected" && slot.state != "Reload pending") {
+            auto *select = new wxButton(m_scroll, wxID_ANY, "Select path", wxDefaultPosition, wxSize(100, -1));
+            line->Add(select, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
+            select->Bind(wxEVT_BUTTON, [this, slot](wxCommandEvent &) {
+                m_status->SetLabel("Selecting BMCU path " + wxString::FromUTF8(slot.label.c_str()));
+                auto guard = m_alive;
+                BMCU::select_prusalink(m_endpoint, m_api_key, slot.tool, [this, guard](std::string error) {
+                    wxTheApp->CallAfter([this, guard, error = std::move(error)] {
+                        if (!guard->load()) return;
+                        if (!error.empty()) m_status->SetLabel(wxString::FromUTF8(error.c_str()));
+                        else refresh();
+                    });
+                });
+            });
+        }
+
         const auto *colors = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
         const auto &preset_names = wxGetApp().preset_bundle->filament_presets;
         if (editable && slot.tool >= 0 && colors && static_cast<size_t>(slot.tool) < colors->values.size()
