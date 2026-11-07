@@ -234,6 +234,7 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
             const auto &modules = document.at("modules");
             if (!modules.is_array() || document.value("schema", 0) != 1) throw std::runtime_error("Invalid BMCU API response");
             const int active_source = document.value("active_source", -1);
+            const int requested_source = document.value("requested_source", -1);
             const bool reload_pending = document.value("reload_pending", false);
             std::vector<Slot> slots;
             for (const auto &module : modules) {
@@ -256,6 +257,7 @@ void discover_prusalink(const std::string &endpoint, const std::string &api_key,
                     const bool loaded = value.value("loaded", false);
                     const char *state = source == active_source ?
                         (reload_pending ? "Reload pending" : loaded ? "In use" : "Selected") :
+                        source == requested_source ? "Requested" :
                         loaded ? "Loaded" : value.value("present", false) ? "Present" : "Empty";
                     slots.push_back(Slot { std::string(1, char('A' + index)), type,
                         value.value("color_valid", false) ? color : "#FFFFFF", state,
