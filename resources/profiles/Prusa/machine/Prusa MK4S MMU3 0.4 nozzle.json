@@ -6,6 +6,7 @@
 	"setting_id": "ebb85aece4ed7330",
 	"instantiation": "true",
 	"printer_model": "Prusa MK4S MMU3",
+	"printer_variant": "0.4",
 	"nozzle_diameter": [
 		"0.4"
 	],

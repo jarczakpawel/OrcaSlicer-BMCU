@@ -14,6 +14,7 @@
 	"nozzle_diameter": [
 		"0.6"
 	],
+	"wipe": ["1"],
 	"printer_model": "Prusa MK4 MMU3",
 	"printer_variant": "0.6",
 	"default_filament_profile": [
